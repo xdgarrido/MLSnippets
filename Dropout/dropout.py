@@ -8,7 +8,15 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 
+#input parameters
+flags = tf.flags
+FLAGS = flags.FLAGS
 
+flags.DEFINE_integer("iter", 10, "Total number of iterations")
+flags.DEFINE_integer("batch", 6, "Batch size")
+flags.DEFINE_integer("seq_length", 512, "Sequence Length")
+flags.DEFINE_integer("attention_heads",24,"Number of attention heads")
+flags.DEFINE_string("mode","benchmark","Mode")
 
 
 def init_rand_variable(shape):
@@ -36,11 +44,11 @@ def dropout(input_tensor, dropout_prob, seed):
 
 
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
-batch_size = 6
-seq_length = 512
+batch_size = FLAGS.batch
+seq_length = FLAGS.seq_length
 
 # number of heads for BERT base model collected from https://github.com/ROCmSoftwarePlatform/BERT#pre-trained-models
-num_attention_heads = 24
+num_attention_heads = FLAGS.attention_heads
 
 # default dropout prob in BERT model collected from https://github.com/ROCmSoftwarePlatform/BERT/blob/bee6030e31e42a9394ac567da170a89a98d2062f/modeling.py#L42
 attention_probs_dropout_prob = 0.1
@@ -49,12 +57,7 @@ attention_probs_dropout_prob = 0.1
 attention_probs = init_ones(
     [batch_size, num_attention_heads, seq_length, seq_length])
 
-#input parameters
-flags = tf.flags
-FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("iter", 10, "Total number of iterations")
-flags.DEFINE_string("mode","benchmark","Mode")
 
 for i in range(FLAGS.iter):
     seed = random.randint(0, sys.maxsize)
