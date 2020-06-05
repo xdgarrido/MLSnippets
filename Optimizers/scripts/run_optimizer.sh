@@ -1,16 +1,4 @@
 export PATH=$PATH:../bin/
-function usage()
-{
-    echo "Usage:"
-    echo ""
-    echo "./run_optimizer.sh"
-    echo "\t-h --help"
-    echo "\t--iter=$COUNT (number of iterations) "
-    echo "\t--vendor=$VENDOR (amd or nvidia)"
-    echo "\t--mode=$MODE (benchmark or validation)"
-    echo ""
-}
-
 secs_to_human() {
     if [[ -z ${1} || ${1} -lt 60 ]] ;then
         min=0 ; secs="${1}"
@@ -21,6 +9,19 @@ secs_to_human() {
         secs=$(echo ${secs}*60|bc|awk '{print int($1+0.5)}')
     fi
     echo "Time Elapsed : ${min} minutes and ${secs} seconds."
+}
+function usage()
+{
+    echo "Usage:"
+    echo ""
+    echo "./run_optimizer.sh"
+    echo "\t-h --help"
+    echo "\t--iter=$COUNT (number of iterations) "
+    echo "\t--optimizer=$TYPE (adam, lamb, nadam or nlamb)"
+    echo "\t--vendor=$VENDOR (amd or nvidia)"
+    echo "\t--netsize=$SIZE (network size)"
+    echo "\t--mode=$MODE (benchmark or validation)"
+    echo ""
 }
 
 export CUDA_VISIBLE_DEVICES=0 # choose gpu
@@ -39,11 +40,9 @@ export HIP_VISIBLE_DEVICES=0 # choose gpu
 #export HIP_TRACE_API=2
 #export HIP_TRACE_API_COLOR=none 
 
- 
-
 # # hcc profile
 #export HCC_PROFILE=2 
-
+#set-up bc (calculator)
 cp /MLSnippets/bin/bc /usr/bin
 
 while [ "$1" != "" ]; do
@@ -57,8 +56,14 @@ while [ "$1" != "" ]; do
         --vendor)
             VENDOR=$VALUE
             ;;
+        --netsize)
+            SIZE=$VALUE
+            ;;
         --iter)
             COUNT=$VALUE
+            ;;
+        --optimizer)
+            TYPE=$VALUE
             ;;
         --mode)
             MODE=$VALUE
@@ -78,6 +83,11 @@ then
       echo " SET VENDOR=$VENDOR"
 fi
 
+if [ -z "$SIZE" ]
+then
+      SIZE=10
+      echo " SET SIZE=$SIZE"
+fi
 
 if [ -z "$COUNT" ]
 then
@@ -85,6 +95,11 @@ then
       echo " SET ITERATIONS=$COUNT"
 fi
 
+if [ -z "$TYPE" ]
+then
+      TYPE=adam
+      echo " SET OPTIMIZER=$TYPE"
+fi
 
 if [ -z "$MODE" ]
 then
@@ -93,10 +108,9 @@ then
 fi
 
 starttime=$(date +%s)
-# run dropout
-# python3 layer_normalization.py
-output=$(python3 layer_normalization.py --iter=$COUNT --mode=$MODE &> profile_layernorm.txt)
-#/opt/rocm/hcc/bin/rpt profile_layernorm.txt > profile_layernorm_HIST.txt
+# run optimization
+output=$(python3 optimization.py --iter=$COUNT --netsize=$SIZE --mode=$MODE --optimizer_type=$TYPE &> profile_optimization.txt)
+#/opt/rocm/hcc/bin/rpt profile_optimization.txt > profile_optimization_HIST.txt
 endtime=$(date +%s)
+echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT NETSIZE=$SIZE OPTIMIZER=$TYPE" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
-

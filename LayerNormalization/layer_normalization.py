@@ -7,13 +7,14 @@ from __future__ import print_function
 
 import math
 import numpy as np
-import tensorflow as tf
-import argparse
 import os
+# enable just error messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import tensorflow as tf
 
 
 def init_weights(shape):
-    return tf.Variable(tf.random_normal(shape, stddev=0.01))
+    return tf.Variable(tf.random.normal(shape, stddev=0.01))
 
 
 # Layer Normalization as defined in Transformer code
@@ -21,7 +22,7 @@ def LayerNormalization(x,scale,bias,epsilon=0):
   """Applies layer normalization."""
   mean = tf.reduce_mean(x, axis=[-1], keepdims=True)
   variance = tf.reduce_mean(tf.square(x - mean), axis=[-1], keepdims=True)
-  norm_x = (x - mean) * tf.rsqrt(variance + epsilon)
+  norm_x = (x - mean) * tf.math.rsqrt(variance + epsilon)
   return norm_x * scale + bias
 
 
@@ -38,15 +39,12 @@ x_trf  = init_weights([val0,val1,hidden_size])
 flags = tf.flags
 FLAGS = flags.FLAGS
 
-# enable just error messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
 flags.DEFINE_integer("iter", 10, "Total number of iterations")
 flags.DEFINE_string("mode","benchmark","Mode")
 
 for i in range(FLAGS.iter):
  
-    init = tf.global_variables_initializer()
+    init = tf.compat.v1.global_variables_initializer()
     with tf.device('/GPU:0'):
         context_layer_gpu  = LayerNormalization(x_trf,scale,bias)   
         context_layer_gpu_gradient = tf.gradients(context_layer_gpu,x_trf)
@@ -56,7 +54,7 @@ for i in range(FLAGS.iter):
             context_layer_cpu  = LayerNormalization(x_trf,scale,bias) 
             context_layer_cpu_gradient = tf.gradients(context_layer_cpu,x_trf)
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         sess.run(init)
         # sess.run returns a list of the fetches given to it
         gpu_pass = sess.run([context_layer_gpu,context_layer_gpu_gradient])

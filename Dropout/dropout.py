@@ -1,11 +1,14 @@
 
-"""The Attention model as implemented by BERT/Trf and related functions."""
+"""The dropout model as implemented by BERT/Trf and related functions."""
 import sys
 import random
 import numpy as np
-import tensorflow as tf
-import argparse
 import os
+# enable just error messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import tensorflow as tf
+
+
 
 
 def init_rand_variable(shape):
@@ -28,11 +31,9 @@ def dropout(input_tensor, dropout_prob, seed):
     Returns:
       A version of `input_tensor` with dropout applied.
     """
+    rate = 1.0 - dropout_prob
+    return tf.nn.dropout(input_tensor, rate, seed=seed)
 
-    return tf.nn.dropout(input_tensor, 1.0 - dropout_prob, seed=seed)
-
-# enable just error messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
 batch_size = 6
@@ -58,7 +59,7 @@ flags.DEFINE_string("mode","benchmark","Mode")
 for i in range(FLAGS.iter):
     seed = random.randint(0, sys.maxsize)
 
-    init = tf.global_variables_initializer()
+    init = tf.compat.v1.global_variables_initializer()
 
     with tf.device('/GPU:0'):
         attention_probs_dropout_gpu = dropout(
@@ -75,7 +76,7 @@ for i in range(FLAGS.iter):
             attention_probs_dropout_cpu_gradient = tf.gradients(
                 attention_probs_dropout_cpu, attention_probs)
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         sess.run(init)
 
         # sess.run returns a list of the fetches given to it
