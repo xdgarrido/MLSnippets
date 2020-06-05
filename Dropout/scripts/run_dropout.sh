@@ -12,6 +12,7 @@ secs_to_human() {
 }
 
 export CUDA_VISIBLE_DEVICES=0 # choose gpu
+export HIP_VISIBLE_DEVICES=0 # choose gpu
   
 # rocblas trace
 # export ROCBLAS_LAYER=3
