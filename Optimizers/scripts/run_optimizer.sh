@@ -79,7 +79,7 @@ done
 
 if [ -z "$VENDOR" ]
 then
-      VENDOR=AMD
+      VENDOR=amd
       echo " SET VENDOR=$VENDOR"
 fi
 

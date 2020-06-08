@@ -7,11 +7,11 @@ import re
 import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
+import tensorflow as tf
 
+#tf.compat.v1.disable_resource_variables()
 #input parameters
-flags = tf.compat.v1.flags
+flags = tf.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("iter", 100, "Total number of iterations")
@@ -272,13 +272,13 @@ class NadamWeightDecayOptimizer(tf.compat.v1.train.Optimizer):
           shape=param.shape.as_list(),
           dtype=tf.float32,
           trainable=False,
-          initializer=tf.compat.v1.zeros_initializer())
+          initializer=tf.zeros_initializer())
       v = tf.compat.v1.get_variable(
           name=param_name + "/nadam_v",
           shape=param.shape.as_list(),
           dtype=tf.float32,
           trainable=False,
-          initializer=tf.compat.v1.zeros_initializer())
+          initializer=tf.zeros_initializer())
 
       # Standard Adam update.
       next_m = (tf.multiply(self.beta_1, m) + tf.multiply(1.0 - self.beta_1, grad))
@@ -384,13 +384,13 @@ class NlambOptimizer(tf.compat.v1.train.Optimizer):
           shape=param.shape.as_list(),
           dtype=tf.float32,
           trainable=False,
-          initializer=tf.compat.v1.zeros_initializer())
+          initializer=tf.zeros_initializer())
       v = tf.compat.v1.get_variable(
           name=param_name + "/nlamb_v",
           shape=param.shape.as_list(),
           dtype=tf.float32,
           trainable=False,
-          initializer=tf.compat.v1.zeros_initializer())
+          initializer=tf.zeros_initializer())
 
       # Standard Adam update.
       next_m = (
@@ -431,8 +431,8 @@ class NlambOptimizer(tf.compat.v1.train.Optimizer):
       # ratio = array_ops.where(math_ops.greater(w_norm, 0), array_ops.where(
       #      math_ops.greater(g_norm, 0), (w_norm / g_norm), 1.0), 1.0)
 
-      r1 = tf.sqrt(tf.reduce_sum(input_tensor=tf.square(param)))
-      r2 = tf.sqrt(tf.reduce_sum(input_tensor=tf.square(update)))
+      r1 = tf.sqrt(tf.reduce_sum(tf.square(param)))
+      r2 = tf.sqrt(tf.reduce_sum(tf.square(update)))
 
       r = tf.compat.v1.where(tf.greater(r1, 0.0), tf.compat.v1.where(
         tf.greater(r2, 0.0), r1/r2, 1.0), 1.0)
@@ -477,10 +477,11 @@ class Optimization(tf.test.TestCase):
 
   def test_optimizer(self):
     with self.session() as sess:
-      w = init_rand_variable([FLAGS.netsize])
+      weights = init_rand_variable([FLAGS.netsize])
       target  = init_ones([FLAGS.netsize])
-     
-      loss  = tf.reduce_mean(input_tensor=tf.square(target - w))
+      w = tf.compat.v1.get_variable("w",initializer=weights)
+      x = target
+      loss  = tf.reduce_mean(input_tensor=tf.square(x - w))
       tvars = tf.compat.v1.trainable_variables()
       grads = tf.gradients(ys=loss, xs=tvars)
       global_step = tf.compat.v1.train.get_or_create_global_step()

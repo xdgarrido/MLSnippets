@@ -6,6 +6,7 @@ function usage()
     echo "./run_optimizer.sh"
     echo "\t-h --help"
     echo "\t--iter=$COUNT (number of iterations) "
+    echo "\t--size=$SIZE (hidden_size) "
     echo "\t--vendor=$VENDOR (amd or nvidia)"
     echo "\t--mode=$MODE (benchmark or validation)"
     echo ""
@@ -66,6 +67,9 @@ while [ "$1" != "" ]; do
         --mode)
             MODE=$VALUE
             ;;
+        --size)
+            SIZE=$VALUE
+            ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -77,7 +81,7 @@ done
 
 if [ -z "$VENDOR" ]
 then
-      VENDOR=AMD
+      VENDOR=amd
       echo " SET VENDOR=$VENDOR"
 fi
 
@@ -88,6 +92,11 @@ then
       echo " SET ITERATIONS=$COUNT"
 fi
 
+if [ -z "$SIZE" ]
+then
+      SIZE=1024
+      echo " SET HIDDEN_SIZE=$SIZE"
+fi
 
 if [ -z "$MODE" ]
 then
@@ -98,8 +107,9 @@ fi
 starttime=$(date +%s)
 # run dropout
 # python3 layer_normalization.py
-output=$(python3 layer_normalization.py --iter=$COUNT --mode=$MODE &> profile_layernorm.txt)
+output=$(python3 layer_normalization.py --iter=$COUNT --mode=$MODE --hidden_size=$SIZE &> profile_layernorm.txt)
 #/opt/rocm/hcc/bin/rpt profile_layernorm.txt > profile_layernorm_HIST.txt
 endtime=$(date +%s)
+echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT HIDDEN_SIZE=$SIZE" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
 

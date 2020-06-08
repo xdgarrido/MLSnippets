@@ -10,45 +10,49 @@ import numpy as np
 import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
+import tensorflow as tf
+
 
 #input parameters
-flags = tf.compat.v1.flags
+flags = tf.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("iter", 10, "Total number of iterations")
-flags.DEFINE_integer("hidden_size", 1024, "Hidden Size")
 flags.DEFINE_string("mode","benchmark","Mode")
 
 def init_weights(shape):
     return tf.Variable(tf.random.normal(shape, stddev=0.01))
 
 
-def layer_norm(input_tensor, name=None):
-  """Run layer normalization on the last dimension of the tensor."""
-  # return tf.contrib.layers.layer_norm(
-  #     inputs=input_tensor, begin_norm_axis=-1, begin_params_axis=-1, scope=name)
-  return tf.keras.layers.LayerNormalization(axis=-1, epsilon=1e-12,  center=False, scale=False)(inputs=input_tensor)
+# Layer Normalization as defined in Transformer code
+def LayerNormalization(x,scale,bias,epsilon=0):
+  """Applies layer normalization."""
+  mean = tf.reduce_mean(x, axis=[-1], keepdims=True)
+  variance = tf.reduce_mean(tf.square(x - mean), axis=[-1], keepdims=True)
+  norm_x = (x - mean) * tf.math.rsqrt(variance + epsilon)
+  return norm_x * scale + bias
 
 
-hidden_size = FLAGS.hidden_size
+val0 = 6
+val1 = 512
+scale = 1.0
+bias  = 0.0
+hidden_size = 4096
 
 #initialize x_trf 
-x_trf  = init_weights([hidden_size,hidden_size])
-
+x_trf  = init_weights([val0,val1,hidden_size])
 
 for i in range(FLAGS.iter):
  
     init = tf.compat.v1.global_variables_initializer()
     with tf.device('/GPU:0'):
-        context_layer_gpu  = layer_norm(x_trf)   
-        context_layer_gpu_gradient = tf.gradients(ys=context_layer_gpu,xs=x_trf)
+        context_layer_gpu  = LayerNormalization(x_trf,scale,bias)   
+        context_layer_gpu_gradient = tf.gradients(context_layer_gpu,x_trf)
 
     if FLAGS.mode == "validation":
         with tf.device('/CPU:0'):
-            context_layer_cpu  = layer_norm(x_trf) 
-            context_layer_cpu_gradient = tf.gradients(ys=context_layer_cpu,xs=x_trf)
+            context_layer_cpu  = LayerNormalization(x_trf,scale,bias) 
+            context_layer_cpu_gradient = tf.gradients(context_layer_cpu,x_trf)
 
     with tf.compat.v1.Session() as sess:
         sess.run(init)

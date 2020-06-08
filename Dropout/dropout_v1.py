@@ -6,11 +6,10 @@ import numpy as np
 import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
+import tensorflow as tf
 
 #input parameters
-flags = tf.compat.v1.flags
+flags = tf.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("iter", 10, "Total number of iterations")
@@ -21,7 +20,7 @@ flags.DEFINE_string("mode","benchmark","Mode")
 
 
 def init_rand_variable(shape):
-    return tf.Variable(tf.random.normal(shape, stddev=0.01))
+    return tf.Variable(tf.random_normal(shape, stddev=0.01))
 
 
 def init_ones(shape):
@@ -40,7 +39,7 @@ def dropout(input_tensor, dropout_prob, seed):
     Returns:
       A version of `input_tensor` with dropout applied.
     """
-    return tf.nn.dropout(input_tensor, rate=dropout_prob, seed=seed)
+    return tf.nn.dropout(input_tensor, rate=1-dropout_prob, seed=seed)
 
 
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
@@ -69,7 +68,7 @@ for i in range(FLAGS.iter):
             attention_probs, attention_probs_dropout_prob, seed=seed)
 
         attention_probs_dropout_gpu_gradient = tf.gradients(
-            ys=attention_probs_dropout_gpu, xs=attention_probs)
+            attention_probs_dropout_gpu, attention_probs)
 
     if FLAGS.mode == "validation":
         with tf.device('/CPU:0'):
@@ -77,7 +76,7 @@ for i in range(FLAGS.iter):
                 attention_probs, attention_probs_dropout_prob, seed=seed)
 
             attention_probs_dropout_cpu_gradient = tf.gradients(
-                ys=attention_probs_dropout_cpu, xs=attention_probs)
+                attention_probs_dropout_cpu, attention_probs)
 
     with tf.compat.v1.Session() as sess:
         sess.run(init)

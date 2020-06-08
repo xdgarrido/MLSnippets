@@ -83,7 +83,7 @@ done
 
 if [ -z "$VENDOR" ]
 then
-      VENDOR=AMD
+      VENDOR=amd
       echo " SET VENDOR=$VENDOR"
 fi
 
@@ -104,7 +104,7 @@ fi
 if [ -z "$BATCH" ]
 then
       BATCH=6
-      echo " SET ITERATIONS=$BATCH"
+      echo " SET BATCH=$BATCH"
 fi
 
 
