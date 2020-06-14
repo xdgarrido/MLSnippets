@@ -14,9 +14,9 @@ tf.disable_v2_behavior()
 flags = tf.compat.v1.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("iter", 100, "Total number of iterations")
+flags.DEFINE_integer("iter", 5000, "Total number of iterations")
 flags.DEFINE_string("mode","benchmark","Mode")
-flags.DEFINE_integer("netsize",5,"Network Size")
+flags.DEFINE_integer("netsize",100000000,"Network Size")
 flags.DEFINE_string("optimizer_type","adam","Optimizer Type: adam, lamb, nadam, nlamb")
 
 class AdamWeightDecayOptimizer(tf.compat.v1.train.Optimizer):

@@ -13,10 +13,10 @@ tf.disable_v2_behavior()
 flags = tf.compat.v1.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("iter", 10, "Total number of iterations")
+flags.DEFINE_integer("iter", 5000, "Total number of iterations")
 flags.DEFINE_integer("batch", 6, "Batch size")
 flags.DEFINE_integer("seq_length", 512, "Sequence Length")
-flags.DEFINE_integer("attention_heads",24,"Number of attention heads")
+flags.DEFINE_integer("attention_heads",16,"Number of attention heads")
 flags.DEFINE_string("mode","benchmark","Mode")
 
 

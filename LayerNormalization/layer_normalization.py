@@ -17,7 +17,7 @@ tf.disable_v2_behavior()
 flags = tf.compat.v1.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("iter", 10, "Total number of iterations")
+flags.DEFINE_integer("iter", 5000, "Total number of iterations")
 flags.DEFINE_integer("hidden_size", 1024, "Hidden Size")
 flags.DEFINE_string("mode","benchmark","Mode")
 
