@@ -31,8 +31,9 @@ layers = FLAGS.layers
 
 if FLAGS.precision == "fp32":
 # this is set to LARGE Bert model 
-   bert_config = BertConfig(attention_probs_dropout_prob= 0.1,
-      hidden_dropout_prob= 0.1,
+   bert_config = BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
+      hidden_act= "gelu",
+      hidden_dropout_prob= 0.9, # 1 - 0.9
       hidden_size = 1024,
       initializer_range = 0.02,
       intermediate_size = 4096,
@@ -43,9 +44,9 @@ if FLAGS.precision == "fp32":
       vocab_size = 30522,
       precision=tf.float32)
 else:
-   bert_config = BertConfig(attention_probs_dropout_prob= 0.1,
+   bert_config = BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
       hidden_act= "gelu",
-      hidden_dropout_prob= 0.1,
+      hidden_dropout_prob= 0.9, # 1 - 0.9
       hidden_size = 1024,
       initializer_range = 0.02,
       intermediate_size = 4096,
