@@ -18,12 +18,16 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("iter", 5000, "Total number of iterations")
 flags.DEFINE_integer("batch", 6, "Batch size")
 flags.DEFINE_integer("seq_length", 512, "Sequence Length")
+flags.DEFINE_integer("heads",16,"HEADS")
+flags.DEFINE_integer("layers",24,"LAYERS")
 flags.DEFINE_string("mode","benchmark","Mode")
 flags.DEFINE_string("precision","fp32","PRECISION")
 
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
 batch_size = FLAGS.batch
 seq_length = FLAGS.seq_length
+heads = FLAGS.heads
+layers = FLAGS.layers
 
 if FLAGS.precision == "fp32":
 # this is set to LARGE Bert model 
@@ -34,8 +38,8 @@ if FLAGS.precision == "fp32":
       initializer_range = 0.02,
       intermediate_size = 4096,
       max_position_embeddings = 512,
-      num_attention_heads = 16,
-      num_hidden_layers = 24,
+      num_attention_heads = heads,
+      num_hidden_layers = layers,
       type_vocab_size =  2,
       vocab_size = 30522,
       precision=tf.float32)
@@ -47,8 +51,8 @@ else:
       initializer_range = 0.02,
       intermediate_size = 4096,
       max_position_embeddings = 512,
-      num_attention_heads = 16,
-      num_hidden_layers = 24,
+      num_attention_heads = heads,
+      num_hidden_layers = layers,
       type_vocab_size =  2,
       vocab_size = 30522,
       precision=tf.float16)
@@ -78,10 +82,10 @@ logits = tf.compat.v1.layers.dense(output_layer, units=hidden_size, activation=t
 loss   = tf.compat.v1.losses.sparse_softmax_cross_entropy(logits=logits, labels=labels)
 variables = tf.compat.v1.trainable_variables()
 # Any optimizer will do it
-opt = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=1e-4)
-grads    = opt.compute_gradients(loss)
+opt        = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=2e-5)
+grads      = opt.compute_gradients(loss)
 bert_train = opt.apply_gradients(grads)
-config=tf.compat.v1.ConfigProto()
+config = tf.compat.v1.ConfigProto()
 
 # fire-up bert
 with tf.compat.v1.Session(config=config) as sess:

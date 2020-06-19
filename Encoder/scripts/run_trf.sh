@@ -11,6 +11,8 @@ function usage()
     echo "\t--precision=$PRECISION (fp32 or fp16)"
     echo "\t--length=$LENGTH (sequence length) "
     echo "\t--batch=$BATCH (batch size)"
+    echo "\t--heads=$HEADS (sequence length) "
+    echo "\t--layers=$LAYERS (batch size)"
     echo ""
 }
 secs_to_human() {
@@ -73,6 +75,12 @@ while [ "$1" != "" ]; do
         --length)
             LENGTH=$VALUE
             ;;
+        --heads)
+            HEADS=$VALUE
+            ;;
+        --layers)
+            LAYERS=$VALUE
+            ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -121,12 +129,24 @@ then
       echo " SET PRECISION=$PRECISION"
 fi
 
+if [ -z "$LAYERS" ]
+then
+      LAYERS=24
+      echo " SET LAYERS=$LAYERS"
+fi
+
+if [ -z "$HEADS" ]
+then
+      HEADS=16
+      echo " SET HEADS=$HEADS"
+fi
+
 
 starttime=$(date +%s)
 # run Bert as transformer
-output=$(python3 encoder.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION  2>&1 | tee log.txt)
+output=$(python3 encoder.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION --layers=$LAYERS --heads=$HEADS 2>&1 | tee log.txt)
 #/opt/rocm/hcc/bin/rpt log.txt > hist.txt
 endtime=$(date +%s)
-echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH PRECISION=$PRECISION" >> eval_results.txt
+echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH PRECISION=$PRECISION LAYERS=$LAYERS HEADS=$HEADS" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
 
