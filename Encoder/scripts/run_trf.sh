@@ -3,14 +3,14 @@ function usage()
 {
     echo "Usage:"
     echo ""
-    echo "./run_optimizer.sh"
+    echo "./run_trf.sh"
     echo "\t-h --help"
     echo "\t--iter=$COUNT (number of iterations) "
     echo "\t--vendor=$VENDOR (amd or nvidia)"
     echo "\t--mode=$MODE (benchmark or validation)"
+    echo "\t--precision=$PRECISION (fp32 or fp16)"
     echo "\t--length=$LENGTH (sequence length) "
-    echo "\t--batch=$BATCH (amd or nvidia)"
-    echo "\t--heads=$HEADS (number of attention heads)"
+    echo "\t--batch=$BATCH (batch size)"
     echo ""
 }
 secs_to_human() {
@@ -43,6 +43,7 @@ export HIP_VISIBLE_DEVICES=0 # choose gpu
 
 # # hcc profile
 #export HCC_PROFILE=2 
+#export HCC_PROFILE_VERBOSE=0x3f
 
 cp /MLSnippets/bin/bc /usr/bin
 
@@ -63,14 +64,14 @@ while [ "$1" != "" ]; do
         --mode)
             MODE=$VALUE
             ;;
+        --precision)
+            PRECISION=$VALUE
+            ;;
         --batch)
             BATCH=$VALUE
             ;;
         --length)
             LENGTH=$VALUE
-            ;;
-        --heads)
-            HEADS=$VALUE
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -90,7 +91,7 @@ fi
 
 if [ -z "$COUNT" ]
 then
-      COUNT=100
+      COUNT=10
       echo " SET ITERATIONS=$COUNT"
 fi
 
@@ -103,28 +104,29 @@ fi
 
 if [ -z "$BATCH" ]
 then
-      BATCH=6
+      BATCH=8
       echo " SET BATCH=$BATCH"
 fi
 
 
-if [ -z "$HEADS" ]
-then
-      HEADS=16
-      echo " SET HEADS=$HEADS"
-fi
-
 if [ -z "$LENGTH" ]
 then
-      LENGTH=512
+      LENGTH=128
       echo " SET SEQ_LENGTH=$LENGTH"
 fi
 
+if [ -z "$PRECISION" ]
+then
+      PRECISION=fp32
+      echo " SET PRECISION=$PRECISION"
+fi
+
+
 starttime=$(date +%s)
-# run dropout
-output=$(python3 dropout.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --attention_heads=$HEADS --mode=benchmark &> profile_dropout.txt)
-#/opt/rocm/hcc/bin/rpt profile_droput.txt > profile_dropout_HIST.txt
+# run Bert as transformer
+output=$(python3 encoder.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION  2>&1 | tee log.txt)
+#/opt/rocm/hcc/bin/rpt log.txt > hist.txt
 endtime=$(date +%s)
-echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH NUM_ATTENTION_HEADS=$HEADS" >> eval_results.txt
+echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH PRECISION=$PRECISION" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
 
