@@ -31,6 +31,7 @@ layers = FLAGS.layers
 if FLAGS.precision == "fp32":
 # this is set to LARGE Bert model 
    bert_config = BertConfig(attention_probs_dropout_prob= 0.1,
+      hidden_act= "gelu",
       hidden_dropout_prob= 0.1,
       hidden_size = 1024,
       initializer_range = 0.02,
