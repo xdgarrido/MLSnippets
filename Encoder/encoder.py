@@ -58,12 +58,13 @@ else:
   
 
 # Set the bert model input
-input_ids   = tf.ones((batch_size, seq_length), dtype=tf.int32)
-input_mask  = tf.ones((batch_size, seq_length), dtype=tf.int32)
-token_ids = tf.ones((batch_size, seq_length), dtype=tf.int32)
+input_ids   = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
+input_mask  = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
+token_ids   = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
 
 # Define to define loss
-labels = tf.ones((batch_size, ), dtype=tf.int32)
+hidden_size = 1024
+labels = tf.ones(shape=(batch_size,), dtype=tf.int32)
 
 bert_model = BertModel(
       config=bert_config,
@@ -75,7 +76,6 @@ bert_model = BertModel(
 
 # Finalize bert
 output_layer = bert_model.get_pooled_output()
-hidden_size = 1024
 logits = tf.compat.v1.layers.dense(output_layer, units=hidden_size, activation=tf.nn.softmax)
 # This is just to compute backward pass
 loss   = tf.compat.v1.losses.sparse_softmax_cross_entropy(logits=logits, labels=labels)
