@@ -1,3 +1,26 @@
+"""BERT model ("Bidirectional Encoder Representations from Transformers").
+
+  Example usage:
+
+  ```python
+  # Already been converted into WordPiece token ids
+  input_ids = tf.constant([[31, 51, 99], [15, 5, 0]])
+  input_mask = tf.constant([[1, 1, 1], [1, 1, 0]])
+  token_type_ids = tf.constant([[0, 0, 1], [0, 2, 0]])
+
+  config = modeling.BertConfig(vocab_size=32000, hidden_size=512,
+    num_hidden_layers=8, num_attention_heads=6, intermediate_size=1024)
+
+  model = modeling.BertModel(config=config, is_training=True,
+    input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_ids)
+
+  label_embeddings = tf.get_variable(...)
+  pooled_output = model.get_pooled_output()
+  logits = tf.matmul(pooled_output, label_embeddings)
+  ...
+  ```
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -84,10 +107,9 @@ variables = tf.compat.v1.trainable_variables()
 opt        = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=2e-5)
 grads      = opt.compute_gradients(loss)
 bert_train = opt.apply_gradients(grads)
-config = tf.compat.v1.ConfigProto()
 
 # fire-up bert
-with tf.compat.v1.Session(config=config) as sess:
+with tf.compat.v1.Session() as sess:
   sess.run(tf.compat.v1.global_variables_initializer())
   sess.run(bert_train)
   for i in range(FLAGS.iter):
