@@ -1,15 +1,14 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
-
-import tensorflow as tf
 import numpy as np
 import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
+import tensorflow.compat.v1 as tf
 from modeling import BertConfig, BertModel
+
+tf.disable_v2_behavior()
 
 flags = tf.compat.v1.flags
 
@@ -18,10 +17,10 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("iter", 5000, "Total number of iterations")
 flags.DEFINE_integer("batch", 6, "Batch size")
 flags.DEFINE_integer("seq_length", 512, "Sequence Length")
-flags.DEFINE_integer("heads",16,"HEADS")
-flags.DEFINE_integer("layers",24,"LAYERS")
+flags.DEFINE_integer("heads",16,"Number of heads")
+flags.DEFINE_integer("layers",24,"Number of layers")
 flags.DEFINE_string("mode","benchmark","Mode")
-flags.DEFINE_string("precision","fp32","PRECISION")
+flags.DEFINE_string("precision","fp32","precision fp32 or fp16")
 
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
 batch_size = FLAGS.batch
@@ -80,7 +79,7 @@ logits = tf.compat.v1.layers.dense(output_layer, units=hidden_size, activation=t
 # This is just to compute backward pass
 loss   = tf.compat.v1.losses.sparse_softmax_cross_entropy(logits=logits, labels=labels)
 variables = tf.compat.v1.trainable_variables()
-# Any optimizer will do it
+# Any optimizer will do it, picking a super light one.
 opt        = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=2e-5)
 grads      = opt.compute_gradients(loss)
 bert_train = opt.apply_gradients(grads)
@@ -92,4 +91,4 @@ with tf.compat.v1.Session(config=config) as sess:
   sess.run(bert_train)
   for i in range(FLAGS.iter):
     with tf.device('/GPU:0'):
-      sess.run(bert_train)
+      sess.run(bert_train)  

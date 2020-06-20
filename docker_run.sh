@@ -39,6 +39,10 @@ if [ -z "$VENDOR" ]
 then
       VENDOR="amd"
       echo " SET VENDOR=$VENDOR"
+fi
+
+if [ -z "$MODE" ]
+then
       MODE="tf2"
       echo " SET MODE=$MODE"
 fi
@@ -51,7 +55,10 @@ then
     else
         IMAGE="rocm/tensorflow:rocm3.3-tf2.1-dev"
     fi
-else
+fi
+
+if [ "$VENDOR" = "nvidia" ]
+then
     if [ "$MODE" = "tf1" ]
     then
         IMAGE="nvcr.io/nvidia/tensorflow:20.03-tf1-py3"
