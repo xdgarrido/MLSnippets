@@ -67,7 +67,6 @@ then
     fi
 fi
 
-
 # -u `id -u`:`id -g`
 if [ "$VENDOR" = "amd" ]
 then

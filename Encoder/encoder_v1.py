@@ -28,7 +28,7 @@ import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
-from modeling import BertConfig, BertModel
+import modeling 
 
 flags = tf.compat.v1.flags
 
@@ -50,7 +50,7 @@ layers = FLAGS.layers
 
 if FLAGS.precision == "fp32":
 # this is set to LARGE Bert model 
-   bert_config = BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
+   bert_config = modeling.BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
       hidden_act= "gelu",
       hidden_dropout_prob= 0.9, # 1 - 0.9
       hidden_size = 1024,
@@ -63,7 +63,7 @@ if FLAGS.precision == "fp32":
       vocab_size = 30522,
       precision=tf.float32)
 else:
-   bert_config = BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
+   bert_config = modeling.BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
       hidden_act= "gelu",
       hidden_dropout_prob= 0.9, # 1 - 0.9
       hidden_size = 1024,
@@ -80,10 +80,27 @@ else:
 # Set the bert model input
 input_ids   = tf.ones((batch_size, seq_length), dtype=tf.int32)
 input_mask  = tf.ones((batch_size, seq_length), dtype=tf.int32)
-token_ids = tf.ones((batch_size, seq_length), dtype=tf.int32)
+token_ids   = tf.ones((batch_size, seq_length), dtype=tf.int32)
 
 # Define to define loss
 labels = tf.ones((batch_size, ), dtype=tf.int32)
+
+bert_model = modeling.BertModel(
+      config=bert_config,
+      is_training=True,
+      input_ids=input_ids,
+      input_mask=input_mask,
+      token_type_ids=token_ids,
+      use_one_hot_embeddings=False)
+
+# Set the bert model input
+input_ids   = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
+input_mask  = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
+token_ids   = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
+
+# Define to define loss
+hidden_size = 1024
+labels = tf.ones(shape=(batch_size,), dtype=tf.int32)
 
 bert_model = BertModel(
       config=bert_config,
@@ -95,20 +112,22 @@ bert_model = BertModel(
 
 # Finalize bert
 output_layer = bert_model.get_pooled_output()
-hidden_size = 1024
 logits = tf.compat.v1.layers.dense(output_layer, units=hidden_size, activation=tf.nn.softmax)
 # This is just to compute backward pass
 loss   = tf.compat.v1.losses.sparse_softmax_cross_entropy(logits=logits, labels=labels)
-variables = tf.compat.v1.trainable_variables()
-# Any optimizer will do it
-opt        = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=2e-5)
-grads      = opt.compute_gradients(loss)
-bert_train = opt.apply_gradients(grads)
+tvars  = tf.compat.v1.trainable_variables()
+global_step = tf.compat.v1.train.get_or_create_global_step()
+# Any optimizer will do it, picking a super light one.
+opt          = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=2e-5)
+grads_and_vars       = opt.compute_gradients(loss,tvars)
+encoder_train = opt.apply_gradients(grads_and_vars, global_step=global_step)
+
+init_op = tf.group(tf.compat.v1.global_variables_initializer(),
+                   tf.compat.v1.local_variables_initializer())
 
 # fire-up bert
 with tf.compat.v1.Session() as sess:
-  sess.run(tf.compat.v1.global_variables_initializer())
-  sess.run(bert_train)
+  sess.run(init_op)
   for i in range(FLAGS.iter):
     with tf.device('/GPU:0'):
-      sess.run(bert_train)
+      sess.run(encoder_train) 

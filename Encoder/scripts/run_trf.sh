@@ -13,6 +13,7 @@ function usage()
     echo "\t--batch=$BATCH (batch size)"
     echo "\t--heads=$HEADS (sequence length) "
     echo "\t--layers=$LAYERS (batch size)"
+    echo "\t--profile=$PROFILE (true or false)"
     echo ""
 }
 secs_to_human() {
@@ -29,23 +30,7 @@ secs_to_human() {
 
 export CUDA_VISIBLE_DEVICES=0 # choose gpu
 export HIP_VISIBLE_DEVICES=0 # choose gpu
-  
-# rocblas trace
-# export ROCBLAS_LAYER=3
-# export ROCBLAS_LOG_TRACE_PATH=$TRAIN_DIR/ROCBLAS_LOG_TRACE.csv
-# export ROCBLAS_LOG_BENCH_PATH=$TRAIN_DIR/ROCBLAS_LOG_BENCH.csv
-
-# # miopen trace
-# export MIOPEN_ENABLE_LOGGING=1
-# export MIOPEN_LOG_LEVEL=6
-
-# # hip trace
-#export HIP_TRACE_API=2
-#export HIP_TRACE_API_COLOR=none 
-
-# # hcc profile
-#export HCC_PROFILE=2 
-#export HCC_PROFILE_VERBOSE=0x3f
+PROFILE=false
 
 cp /MLSnippets/bin/bc /usr/bin
 
@@ -80,6 +65,9 @@ while [ "$1" != "" ]; do
             ;;
         --layers)
             LAYERS=$VALUE
+            ;;
+        --profile)
+            PROFILE=$VALUE
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -141,11 +129,33 @@ then
       echo " SET HEADS=$HEADS"
 fi
 
+# rocblas trace
+# export ROCBLAS_LAYER=3
+# export ROCBLAS_LOG_TRACE_PATH=$TRAIN_DIR/ROCBLAS_LOG_TRACE.csv
+# export ROCBLAS_LOG_BENCH_PATH=$TRAIN_DIR/ROCBLAS_LOG_BENCH.csv
+
+# # miopen trace
+# export MIOPEN_ENABLE_LOGGING=1
+# export MIOPEN_LOG_LEVEL=6
+
+# # hip trace
+#export HIP_TRACE_API=2
+#export HIP_TRACE_API_COLOR=none 
+if [ "$PROFILE" = true ]
+then
+    export HCC_PROFILE=2 
+    export HCC_PROFILE_VERBOSE=0x3f
+    echo "Set profiling"
+fi
 
 starttime=$(date +%s)
 # run Bert as transformer
 output=$(python3 encoder.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION --layers=$LAYERS --heads=$HEADS 2>&1 | tee log.txt)
-#/opt/rocm/hcc/bin/rpt log.txt > hist.txt
+if [ "$PROFILE" = true ]
+then
+    /opt/rocm/hcc/bin/rpt log.txt > hist.txt
+fi
+
 endtime=$(date +%s)
 echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH PRECISION=$PRECISION LAYERS=$LAYERS HEADS=$HEADS" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
