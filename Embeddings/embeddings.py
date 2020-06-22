@@ -20,6 +20,7 @@
   ...
   ```
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -27,8 +28,10 @@ import numpy as np
 import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow as tf
-import modeling 
+import tensorflow.compat.v1 as tf
+import modeling
+
+tf.disable_v2_behavior()
 
 flags = tf.compat.v1.flags
 
@@ -37,10 +40,10 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("iter", 5000, "Total number of iterations")
 flags.DEFINE_integer("batch", 6, "Batch size")
 flags.DEFINE_integer("seq_length", 512, "Sequence Length")
-flags.DEFINE_integer("heads",16,"HEADS")
-flags.DEFINE_integer("layers",24,"LAYERS")
+flags.DEFINE_integer("heads",16,"Number of heads")
+flags.DEFINE_integer("layers",24,"Number of layers")
 flags.DEFINE_string("mode","benchmark","Mode")
-flags.DEFINE_string("precision","fp32","PRECISION")
+flags.DEFINE_string("precision","fp32","precision fp32 or fp16")
 
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
 batch_size = FLAGS.batch
@@ -50,9 +53,9 @@ layers = FLAGS.layers
 
 if FLAGS.precision == "fp32":
 # this is set to LARGE Bert model 
-   bert_config = modeling.BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
+   bert_config = modeling.BertConfig(attention_probs_dropout_prob= 0.1,
       hidden_act= "gelu",
-      hidden_dropout_prob= 0.9, # 1 - 0.9
+      hidden_dropout_prob= 0.1,
       hidden_size = 1024,
       initializer_range = 0.02,
       intermediate_size = 4096,
@@ -63,9 +66,9 @@ if FLAGS.precision == "fp32":
       vocab_size = 30522,
       precision=tf.float32)
 else:
-   bert_config = modeling.BertConfig(attention_probs_dropout_prob= 0.9, # 1 - 0.9
+   bert_config = modeling.BertConfig(attention_probs_dropout_prob= 0.1,
       hidden_act= "gelu",
-      hidden_dropout_prob= 0.9, # 1 - 0.9
+      hidden_dropout_prob= 0.1,
       hidden_size = 1024,
       initializer_range = 0.02,
       intermediate_size = 4096,
@@ -76,22 +79,6 @@ else:
       vocab_size = 30522,
       precision=tf.float16)
   
-
-# Set the bert model input
-input_ids   = tf.ones((batch_size, seq_length), dtype=tf.int32)
-input_mask  = tf.ones((batch_size, seq_length), dtype=tf.int32)
-token_ids   = tf.ones((batch_size, seq_length), dtype=tf.int32)
-
-# Define to define loss
-labels = tf.ones((batch_size, ), dtype=tf.int32)
-
-bert_model = modeling.BertModel(
-      config=bert_config,
-      is_training=True,
-      input_ids=input_ids,
-      input_mask=input_mask,
-      token_type_ids=token_ids,
-      use_one_hot_embeddings=False)
 
 # Set the bert model input
 input_ids   = tf.ones(shape=(batch_size, seq_length), dtype=tf.int32)
@@ -111,16 +98,8 @@ bert_model = modeling.BertModel(
       use_one_hot_embeddings=False)
 
 # Finalize bert
-output_layer = bert_model.get_pooled_output()
-logits = tf.compat.v1.layers.dense(output_layer, units=hidden_size, activation=tf.nn.softmax)
-# This is just to compute backward pass
-loss   = tf.compat.v1.losses.sparse_softmax_cross_entropy(logits=logits, labels=labels)
-tvars  = tf.compat.v1.trainable_variables()
-global_step = tf.compat.v1.train.get_or_create_global_step()
-# Any optimizer will do it, picking a super light one.
-opt          = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=2e-5)
-grads_and_vars       = opt.compute_gradients(loss,tvars)
-encoder_train = opt.apply_gradients(grads_and_vars, global_step=global_step)
+output_embedding = bert_model.get_embedding_output()
+
 
 init_op = tf.group(tf.compat.v1.global_variables_initializer(),
                    tf.compat.v1.local_variables_initializer())
@@ -130,4 +109,4 @@ with tf.compat.v1.Session() as sess:
   sess.run(init_op)
   for i in range(FLAGS.iter):
     with tf.device('/GPU:0'):
-      sess.run(encoder_train) 
+      sess.run(output_embedding)  
