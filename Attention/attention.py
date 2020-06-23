@@ -347,7 +347,7 @@ attention_probs_dropout_prob = 0.1
 
 # initialize layer and weight for dense layers input
 initializer_range = 0.2
-layer_input = init_rand_variable([attention_head_size * num_attention_heads, attention_head_size * num_attention_heads])
+layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads])
 attention_mask = init_ones([batch_size,seq_length,seq_length])
 init_op = tf.group(tf.compat.v1.global_variables_initializer(),
                    tf.compat.v1.local_variables_initializer())
