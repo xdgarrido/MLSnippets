@@ -2,17 +2,22 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import sys
-import random
+
 import collections
 import copy
-import numpy as np
+import json
 import math
+import re
+import numpy as np
+import six
 import os
 # enable just error messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import six
 import tensorflow.compat.v1 as tf
+tf.compat.v1.disable_resource_variables()
+tf.compat.v1.disable_eager_execution()
+
+
 tf.disable_v2_behavior()
 
 #input parameters
@@ -108,9 +113,9 @@ def get_shape_list(tensor, expected_rank=None, name=None):
 def init_rand_variable(shape):
     return tf.Variable(tf.random.uniform(shape, minval=-0.7, maxval=1.3))
 
-def create_initializer(shape,name=None,initializer_range=0.02):
+def create_initializer(initializer_range=0.02):
   """Creates a `truncated_normal_initializer` with the given range."""
-  return tf.compat.v1.get_variable(name,shape,initializer = tf.compat.v1.truncated_normal_initializer(stddev = initializer_range))
+  return tf.compat.v1.truncated_normal_initializer(stddev=initializer_range)
 
 def init_ones(shape):
     return tf.ones(shape)
@@ -132,9 +137,6 @@ def dropout(input_tensor, dropout_prob, seed):
 
 def attention_layer(from_tensor,
                     to_tensor,
-                    kernel_query,
-                    kernel_key,
-                    kernel_value,
                     attention_mask=None,
                     num_attention_heads=1,
                     size_per_head=512,
@@ -240,24 +242,30 @@ def attention_layer(from_tensor,
   from_tensor_2d = reshape_to_matrix(from_tensor)
   to_tensor_2d = reshape_to_matrix(to_tensor)
 
-  #  Original code
-  # `query_layer` = [B*F, N*H]
-  #  query_layer = tf.compat.v1.layers.dense(from_tensor_2d,num_attention_heads * size_per_head,activation=query_act,name="query",kernel_initializer=create_initializer(initializer_range))
+   # `query_layer` = [B*F, N*H]
+  query_layer = tf.compat.v1.layers.dense(
+      from_tensor_2d,
+      num_attention_heads * size_per_head,
+      activation=query_act,
+      name="query",
+      kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
 
   # `key_layer` = [B*T, N*H]
-  #  key_layer = tf.compat.v1.layers.dense(to_tensor_2d,num_attention_heads * size_per_head,activation=key_act,name="key",kernel_initializer=create_initializer(initializer_range))
+  key_layer = tf.compat.v1.layers.dense(
+      to_tensor_2d,
+      num_attention_heads * size_per_head,
+      activation=key_act,
+      name="key",
+      kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
 
   # `value_layer` = [B*T, N*H]
-  #  value_layer = tf.compat.v1.layers.dense(to_tensor_2d,num_attention_heads * size_per_head,activation=value_act,name="value",kernel_initializer=create_initializer(initializer_range))
-
-  # `query_layer` = [B*F, N*H]
-  query_layer = tf.matmul(from_tensor_2d,kernel_query)
-
-  # `key_layer` = [B*T, N*H]
-  key_layer = tf.matmul(to_tensor_2d, kernel_key)
-
-  # `value_layer` = [B*T, N*H]
-  value_layer = tf.matmul(from_tensor_2d,kernel_value)
+  value_layer = tf.compat.v1.layers.dense(
+      to_tensor_2d,
+      num_attention_heads * size_per_head,
+      activation=value_act,
+      name="value",
+      kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
+  
      
 
   # `query_layer` = [B, N, F, H]
@@ -341,24 +349,16 @@ attention_probs_dropout_prob = 0.1
 initializer_range = 0.2
 layer_input = init_rand_variable([attention_head_size * num_attention_heads, attention_head_size * num_attention_heads])
 attention_mask = init_ones([batch_size,seq_length,seq_length])
-hidden_query = create_initializer(shape=[attention_head_size * num_attention_heads, attention_head_size * num_attention_heads],name="qweights",initializer_range=0.02)
-hidden_key   = create_initializer(shape=[attention_head_size * num_attention_heads, attention_head_size * num_attention_heads],name="kweights",initializer_range=0.02)
-hidden_value = create_initializer(shape=[attention_head_size * num_attention_heads, attention_head_size * num_attention_heads],name="vweights",initializer_range=0.02)
+init_op = tf.group(tf.compat.v1.global_variables_initializer(),
+                   tf.compat.v1.local_variables_initializer())
 
-for i in range(FLAGS.iter):
-
-    #init=tf.compat.v1.initialize_all_variables()
-    init = tf.compat.v1.global_variables_initializer()
-
+with tf.compat.v1.Session() as sess:
+  sess.run(init_op)
+  for i in range(FLAGS.iter):
     with tf.device('/GPU:0'):
-      with tf.compat.v1.variable_scope("attention"):
-        with tf.compat.v1.variable_scope("self"):
             attention_head_gpu = attention_layer(
             from_tensor=layer_input,
             to_tensor=layer_input,
-            kernel_query= hidden_query,
-            kernel_key= hidden_key,
-            kernel_value= hidden_value,
             attention_mask=attention_mask,
             num_attention_heads=num_attention_heads,
             size_per_head=attention_head_size,
@@ -373,14 +373,9 @@ for i in range(FLAGS.iter):
 
     if FLAGS.mode == "validation":
         with tf.device('/CPU:0'):
-           with tf.compat.v1.variable_scope("attention"):
-              with tf.compat.v1.variable_scope("self"):
                 attention_head_cpu = attention_layer(
                 from_tensor=layer_input,
                 to_tensor=layer_input,
-                kernel_query= hidden_query,
-                kernel_key= hidden_key,
-                kernel_value= hidden_value,
                 attention_mask=attention_mask,
                 num_attention_heads=num_attention_heads,
                 size_per_head=attention_head_size,
@@ -392,9 +387,6 @@ for i in range(FLAGS.iter):
                 to_seq_length=seq_length)
                 
                 attention_head_cpu_gradient = tf.gradients(ys=attention_head_cpu, xs=layer_input)
-
-    with tf.compat.v1.Session() as sess:
-        sess.run(init)
 
         # sess.run returns a list of the fetches given to it
         gpu_pass = sess.run([attention_head_gpu,attention_head_gpu_gradient])
