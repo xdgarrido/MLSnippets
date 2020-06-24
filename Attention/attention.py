@@ -32,6 +32,16 @@ flags.DEFINE_integer("attention_head_size",64,"Size of attention heads")
 flags.DEFINE_string("mode","benchmark","Mode")
 
 
+def init_rand_variable(shape):
+    return tf.Variable(tf.random.uniform(shape, minval=-0.7, maxval=1.3))
+
+def create_initializer(initializer_range=0.02):
+  """Creates a `truncated_normal_initializer` with the given range."""
+  return tf.compat.v1.truncated_normal_initializer(stddev=initializer_range)
+
+def init_ones(shape):
+    return tf.ones(shape)
+
 def assert_rank(tensor, expected_rank, name=None):
   """Raises an exception if the tensor rank is not of the expected rank.
 
@@ -109,16 +119,6 @@ def get_shape_list(tensor, expected_rank=None, name=None):
   for index in non_static_indexes:
     shape[index] = dyn_shape[index]
   return shape
-
-def init_rand_variable(shape):
-    return tf.Variable(tf.random.uniform(shape, minval=-0.7, maxval=1.3))
-
-def create_initializer(initializer_range=0.02):
-  """Creates a `truncated_normal_initializer` with the given range."""
-  return tf.compat.v1.truncated_normal_initializer(stddev=initializer_range)
-
-def init_ones(shape):
-    return tf.ones(shape)
 
 
 def dropout(input_tensor, dropout_prob, seed):
@@ -265,7 +265,6 @@ def attention_layer(from_tensor,
       activation=value_act,
       name="value",
       kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
-  
      
 
   # `query_layer` = [B, N, F, H]
@@ -291,7 +290,7 @@ def attention_layer(from_tensor,
     # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
     # masked positions, this operation will create a tensor which is 0.0 for
     # positions we want to attend and -10000.0 for masked positions.
-    adder = (1.0 - tf.cast(attention_mask, tf.float32)) * -10000.0
+    adder = (1.0 - tf.cast(attention_mask, dtype=tf.float32)) * -10000.0
 
     # Since we are adding it to the raw scores before the softmax, this is
     # effectively the same as removing these entirely.
@@ -333,6 +332,7 @@ def attention_layer(from_tensor,
   return context_layer
 
 
+
 # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
 batch_size = FLAGS.batch
 seq_length = FLAGS.seq_length
@@ -349,12 +349,9 @@ attention_probs_dropout_prob = 0.1
 initializer_range = 0.2
 layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads])
 attention_mask = init_ones([batch_size,seq_length,seq_length])
-init_op = tf.group(tf.compat.v1.global_variables_initializer(),
-                   tf.compat.v1.local_variables_initializer())
 
-with tf.compat.v1.Session() as sess:
-  sess.run(init_op)
-  for i in range(FLAGS.iter):
+
+for i in range(FLAGS.iter):
     with tf.device('/GPU:0'):
             attention_head_gpu = attention_layer(
             from_tensor=layer_input,
@@ -387,6 +384,9 @@ with tf.compat.v1.Session() as sess:
                 to_seq_length=seq_length)
                 
                 attention_head_cpu_gradient = tf.gradients(ys=attention_head_cpu, xs=layer_input)
+    init = tf.global_variables_initializer()            
+    with tf.compat.v1.Session() as sess:
+        sess.run(init)
 
         # sess.run returns a list of the fetches given to it
         gpu_pass = sess.run([attention_head_gpu,attention_head_gpu_gradient])
@@ -405,3 +405,4 @@ with tf.compat.v1.Session() as sess:
         print("Forward Error: ", np.sum(forward_error))
         backward_error = backward_pass_gpu-backward_pass_cpu
         print("Backward Error: ", np.sum(backward_error))
+       

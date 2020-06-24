@@ -9,9 +9,10 @@ function usage()
     echo "\t--vendor=$VENDOR (amd or nvidia)"
     echo "\t--mode=$MODE (benchmark or validation)"
     echo "\t--length=$LENGTH (sequence length) "
-    echo "\t--attention_head_size=$SIZE (size of attention head)"
+    echo "\t--size=$SIZE (size of attention head)"
     echo "\t--batch=$BATCH (batch size)"
     echo "\t--heads=$HEADS (number of attention heads)"
+    echo "\t--profile=$PROFILE (true or false)"
     echo ""
 }
 secs_to_human() {
@@ -27,23 +28,7 @@ secs_to_human() {
 }
 
 export CUDA_VISIBLE_DEVICES=0 # choose gpu
-export HIP_VISIBLE_DEVICES=0 # choose gpu
-  
-# rocblas trace
-# export ROCBLAS_LAYER=3
-# export ROCBLAS_LOG_TRACE_PATH=$TRAIN_DIR/ROCBLAS_LOG_TRACE.csv
-# export ROCBLAS_LOG_BENCH_PATH=$TRAIN_DIR/ROCBLAS_LOG_BENCH.csv
-
-# # miopen trace
-# export MIOPEN_ENABLE_LOGGING=1
-# export MIOPEN_LOG_LEVEL=6
-
-# # hip trace
-#export HIP_TRACE_API=2
-#export HIP_TRACE_API_COLOR=none 
-
-# # hcc profile
-#export HCC_PROFILE=2 
+export HIP_VISIBLE_DEVICES=0 # choose gpu 
 
 cp /MLSnippets/bin/bc /usr/bin
 
@@ -75,6 +60,9 @@ while [ "$1" != "" ]; do
             ;;
         --heads)
             HEADS=$VALUE
+            ;;
+        --profile)
+            PROFILE=$VALUE
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -130,11 +118,33 @@ then
       echo " SET SEQ_LENGTH=$LENGTH"
 fi
 
+# rocblas trace
+# export ROCBLAS_LAYER=3
+# export ROCBLAS_LOG_TRACE_PATH=$TRAIN_DIR/ROCBLAS_LOG_TRACE.csv
+# export ROCBLAS_LOG_BENCH_PATH=$TRAIN_DIR/ROCBLAS_LOG_BENCH.csv
+
+# # miopen trace
+# export MIOPEN_ENABLE_LOGGING=1
+# export MIOPEN_LOG_LEVEL=6
+
+# # hip trace
+#export HIP_TRACE_API=2
+#export HIP_TRACE_API_COLOR=none 
+if [ "$PROFILE" = true ]
+then
+    export HCC_PROFILE=2 
+    export HCC_PROFILE_VERBOSE=0x3f
+    echo "Set profiling"
+fi
 
 starttime=$(date +%s)
 # run attention
-output=$(python3 attention.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --num_attention_heads=$HEADS --attention_head_size=$SIZE --mode=$MODE &> profile_attention.txt)
-#/opt/rocm/hcc/bin/rpt profile_attention.txt > profile_attention_HIST.txt
+output=$(python3 attention.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --num_attention_heads=$HEADS --attention_head_size=$SIZE --mode=$MODE 2>&1 | tee log.txt)
+if [ "$PROFILE" = true ]
+then
+    /opt/rocm/hcc/bin/rpt log.txt > hist.txt
+fi
+
 endtime=$(date +%s)
 echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH NUM_ATTENTION_HEADS=$HEADS SIZE_ATTENTION_HEAD=$SIZE" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt

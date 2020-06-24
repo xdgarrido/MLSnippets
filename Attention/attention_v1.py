@@ -341,7 +341,7 @@ attention_probs_dropout_prob = 0.1
 
 # initialize layer and weight for dense layers input
 initializer_range = 0.2
-layer_input = init_rand_variable([attention_head_size * num_attention_heads, attention_head_size * num_attention_heads])
+layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads])
 attention_mask = init_ones([batch_size,seq_length,seq_length])
 hidden_query = create_initializer(shape=[attention_head_size * num_attention_heads, attention_head_size * num_attention_heads],name="qweights",initializer_range=0.02)
 hidden_key   = create_initializer(shape=[attention_head_size * num_attention_heads, attention_head_size * num_attention_heads],name="kweights",initializer_range=0.02)
@@ -352,8 +352,6 @@ for i in range(FLAGS.iter):
     init = tf.compat.v1.global_variables_initializer()
     
     with tf.device('/GPU:0'):
-      with tf.compat.v1.variable_scope("attention"):
-        with tf.compat.v1.variable_scope("self"):
             attention_head_gpu = attention_layer(
             from_tensor=layer_input,
             to_tensor=layer_input,
@@ -374,8 +372,6 @@ for i in range(FLAGS.iter):
 
     if FLAGS.mode == "validation":
         with tf.device('/CPU:0'):
-           with tf.compat.v1.variable_scope("attention"):
-              with tf.compat.v1.variable_scope("self"):
                 attention_head_cpu = attention_layer(
                 from_tensor=layer_input,
                 to_tensor=layer_input,
@@ -393,6 +389,7 @@ for i in range(FLAGS.iter):
                 to_seq_length=seq_length)
                 
                 attention_head_cpu_gradient = tf.gradients(ys=attention_head_cpu, xs=layer_input)
+                
     with tf.compat.v1.Session() as sess:
         sess.run(init)
 
