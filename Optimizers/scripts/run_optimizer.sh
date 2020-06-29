@@ -21,6 +21,7 @@ function usage()
     echo "\t--vendor=$VENDOR (amd or nvidia)"
     echo "\t--netsize=$SIZE (network size)"
     echo "\t--mode=$MODE (benchmark or validation)"
+    echo "\t--profile=$PROFILE (true or false)"
     echo ""
 }
 
@@ -68,6 +69,9 @@ while [ "$1" != "" ]; do
         --mode)
             MODE=$VALUE
             ;;
+        --profile)
+            PROFILE=$VALUE
+            ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -107,10 +111,21 @@ then
       echo " SET MODE=$MODE"
 fi
 
+if [ "$PROFILE" = true ]
+then
+    export HCC_PROFILE=2 
+    export HCC_PROFILE_VERBOSE=0x3f
+    echo "Set profiling"
+fi
+
 starttime=$(date +%s)
 # run optimization
-output=$(python3 optimization.py --iter=$COUNT --netsize=$SIZE --mode=$MODE --optimizer_type=$TYPE &> profile_optimization.txt)
+output=$(python3 optimization.py --iter=$COUNT --netsize=$SIZE --mode=$MODE --optimizer_type=$TYPE &> log.txt)
 #/opt/rocm/hcc/bin/rpt profile_optimization.txt > profile_optimization_HIST.txt
 endtime=$(date +%s)
+if [ "$PROFILE" = true ]
+then
+    /opt/rocm/hcc/bin/rpt log.txt > hist.txt
+fi
 echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT NETSIZE=$SIZE OPTIMIZER=$TYPE" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt

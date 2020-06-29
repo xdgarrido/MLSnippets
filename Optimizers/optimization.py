@@ -474,38 +474,39 @@ def init_ones(shape):
     return tf.ones(shape)
 
 class Optimization(tf.test.TestCase):
-
+ 
   def test_optimizer(self):
     with self.session() as sess:
-      w = init_rand_variable([FLAGS.netsize])
-      target  = init_ones([FLAGS.netsize])
-     
-      loss  = tf.reduce_mean(input_tensor=tf.square(target - w))
-      tvars = tf.compat.v1.trainable_variables()
-      grads = tf.gradients(ys=loss, xs=tvars)
-      global_step = tf.compat.v1.train.get_or_create_global_step()
-      if FLAGS.optimizer_type == "adam":
-        print("Initializing ADAM Optimizer")
-        optimizer = AdamWeightDecayOptimizer(learning_rate=0.2)
-      elif FLAGS.optimizer_type == "lamb":
-        print("Initializing LAMB Optimizer")
-        optimizer = LAMBOptimizer(learning_rate=0.2)
-      elif FLAGS.optimizer_type == "nadam":
-        print("Initializing NADAM Optimizer")
-        optimizer = NadamWeightDecayOptimizer(learning_rate=0.2)
-      else:
-        print("Initializing NLAMB Optimizer")
-        optimizer = NlambOptimizer(learning_rate=0.2)
+      with tf.device('/GPU:0'): 
+        w = init_rand_variable([FLAGS.netsize])
+        target  = init_ones([FLAGS.netsize])
+      
+        loss  = tf.reduce_mean(input_tensor=tf.square(target - w))
+        tvars = tf.compat.v1.trainable_variables()
+        grads = tf.gradients(ys=loss, xs=tvars)
+        global_step = tf.compat.v1.train.get_or_create_global_step()
+        if FLAGS.optimizer_type == "adam":
+          print("Initializing ADAM Optimizer")
+          optimizer = AdamWeightDecayOptimizer(learning_rate=0.2)
+        elif FLAGS.optimizer_type == "lamb":
+          print("Initializing LAMB Optimizer")
+          optimizer = LAMBOptimizer(learning_rate=0.2)
+        elif FLAGS.optimizer_type == "nadam":
+          print("Initializing NADAM Optimizer")
+          optimizer = NadamWeightDecayOptimizer(learning_rate=0.2)
+        else:
+          print("Initializing NLAMB Optimizer")
+          optimizer = NlambOptimizer(learning_rate=0.2)
 
-      train_op = optimizer.apply_gradients(zip(grads, tvars), global_step)
-      init_op = tf.group(tf.compat.v1.global_variables_initializer(),
-                         tf.compat.v1.local_variables_initializer())
-      sess.run(init_op)
-      for _ in range(FLAGS.iter):
-        sess.run(train_op)
-      if FLAGS.mode == "validation" :
-        w_final = sess.run(w)
-        self.assertAllClose(w_final.flat, target, rtol=1e-3, atol=1e-3)
+        train_op = optimizer.apply_gradients(zip(grads, tvars), global_step)
+        init_op = tf.group(tf.compat.v1.global_variables_initializer(),
+                          tf.compat.v1.local_variables_initializer())
+        sess.run(init_op)
+        for _ in range(FLAGS.iter):
+            sess.run(train_op)
+        if FLAGS.mode == "validation" :
+          w_final = sess.run(w)
+          self.assertAllClose(w_final.flat, target, rtol=1e-3, atol=1e-3)
 
 
 if __name__ == "__main__":
