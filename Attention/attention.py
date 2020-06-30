@@ -248,7 +248,7 @@ def attention_layer(from_tensor,
       num_attention_heads * size_per_head,
       activation=query_act,
       name="query",
-      kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
+      kernel_initializer=create_initializer(initializer_range))
 
   # `key_layer` = [B*T, N*H]
   key_layer = tf.compat.v1.layers.dense(
@@ -256,7 +256,7 @@ def attention_layer(from_tensor,
       num_attention_heads * size_per_head,
       activation=key_act,
       name="key",
-      kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
+      kernel_initializer=create_initializer(initializer_range))
 
   # `value_layer` = [B*T, N*H]
   value_layer = tf.compat.v1.layers.dense(
@@ -264,7 +264,7 @@ def attention_layer(from_tensor,
       num_attention_heads * size_per_head,
       activation=value_act,
       name="value",
-      kernel_initializer=create_initializer(initializer_range),reuse=tf.AUTO_REUSE)
+      kernel_initializer=create_initializer(initializer_range))
      
 
   # `query_layer` = [B, N, F, H]
@@ -331,46 +331,29 @@ def attention_layer(from_tensor,
 
   return context_layer
 
+class Attention(tf.test.TestCase):
+ 
+  def test_attention(self):
+    with self.session() as sess:
+      with tf.device('/GPU:0'): 
+       
+        # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
+        batch_size = FLAGS.batch
+        seq_length = FLAGS.seq_length
 
+        # number of heads for BERT base model collected from https://github.com/ROCmSoftwarePlatform/BERT#pre-trained-models
+        attention_head_size = FLAGS.attention_head_size
+        num_attention_heads = FLAGS.num_attention_heads
 
-# batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
-batch_size = FLAGS.batch
-seq_length = FLAGS.seq_length
+        # default dropout prob in BERT model collected from https://github.com/ROCmSoftwarePlatform/BERT/blob/bee6030e31e42a9394ac567da170a89a98d2062f/modeling.py#L42
+        attention_probs_dropout_prob = 0.1
 
-# number of heads for BERT base model collected from https://github.com/ROCmSoftwarePlatform/BERT#pre-trained-models
-attention_head_size = FLAGS.attention_head_size
-num_attention_heads = FLAGS.num_attention_heads
+        # initialize layer and weight for dense layers input
+        initializer_range = 0.2
+        layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads])
+        attention_mask = init_ones([batch_size,seq_length,seq_length])
 
-
-# default dropout prob in BERT model collected from https://github.com/ROCmSoftwarePlatform/BERT/blob/bee6030e31e42a9394ac567da170a89a98d2062f/modeling.py#L42
-attention_probs_dropout_prob = 0.1
-
-# initialize layer and weight for dense layers input
-initializer_range = 0.2
-layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads])
-attention_mask = init_ones([batch_size,seq_length,seq_length])
-
-
-for i in range(FLAGS.iter):
-    with tf.device('/GPU:0'):
-            attention_head_gpu = attention_layer(
-            from_tensor=layer_input,
-            to_tensor=layer_input,
-            attention_mask=attention_mask,
-            num_attention_heads=num_attention_heads,
-            size_per_head=attention_head_size,
-            attention_probs_dropout_prob=attention_probs_dropout_prob,
-            initializer_range=initializer_range,
-            do_return_2d_tensor=True,
-            batch_size=batch_size,
-            from_seq_length=seq_length,
-            to_seq_length=seq_length)
-
-            attention_head_gpu_gradient = tf.gradients(ys=attention_head_gpu, xs=layer_input)
-
-    if FLAGS.mode == "validation":
-        with tf.device('/CPU:0'):
-                attention_head_cpu = attention_layer(
+        attention_head_gpu = attention_layer(
                 from_tensor=layer_input,
                 to_tensor=layer_input,
                 attention_mask=attention_mask,
@@ -383,26 +366,13 @@ for i in range(FLAGS.iter):
                 from_seq_length=seq_length,
                 to_seq_length=seq_length)
                 
-                attention_head_cpu_gradient = tf.gradients(ys=attention_head_cpu, xs=layer_input)
-    init = tf.global_variables_initializer()            
-    with tf.compat.v1.Session() as sess:
-        sess.run(init)
+        attention_head_gpu_gradient = tf.gradients(ys=attention_head_gpu, xs=layer_input)
+        
+        init_op = tf.group(tf.compat.v1.global_variables_initializer(),
+                          tf.compat.v1.local_variables_initializer())
+        sess.run(init_op)
+        for _ in range(FLAGS.iter):
+            sess.run(attention_head_gpu_gradient)
 
-        # sess.run returns a list of the fetches given to it
-        gpu_pass = sess.run([attention_head_gpu,attention_head_gpu_gradient])
-        forward_pass_gpu = gpu_pass[0]
-        # tf.gradients returns a list of derivatives and we only need the derivative of one tensor so we take the first argument
-        backward_pass_gpu = gpu_pass[1][0]
-
-        if FLAGS.mode == "benchmark":
-            continue
-
-        cpu_pass = sess.run([attention_head_cpu, attention_head_cpu_gradient])
-        forward_pass_cpu = cpu_pass[0]
-        backward_pass_cpu = cpu_pass[1][0]
-
-        forward_error = forward_pass_gpu-forward_pass_cpu
-        print("Forward Error: ", np.sum(forward_error))
-        backward_error = backward_pass_gpu-backward_pass_cpu
-        print("Backward Error: ", np.sum(backward_error))
-       
+if __name__ == "__main__":
+  tf.test.main()
