@@ -31,9 +31,9 @@ def layer_norm(input_tensor, name=None):
   #     inputs=input_tensor, begin_norm_axis=-1, begin_params_axis=-1, scope=name)
   return tf.keras.layers.LayerNormalization(axis=-1, epsilon=1e-12,  center=False, scale=False)(inputs=input_tensor)
 
-class Drop(tf.test.TestCase):
+class Lnorm(tf.test.TestCase):
  
-  def test_drop(self):
+  def test_lnorm(self):
     with self.session() as sess:
       with tf.device('/GPU:0'): 
 
