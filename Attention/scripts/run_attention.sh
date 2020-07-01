@@ -11,6 +11,7 @@ function usage()
     echo "\t--length=$LENGTH (sequence length) "
     echo "\t--size=$SIZE (size of attention head)"
     echo "\t--batch=$BATCH (batch size)"
+    echo "\t--precision=$PRECISION (fp32 or fp16)"
     echo "\t--heads=$HEADS (number of attention heads)"
     echo "\t--profile=$PROFILE (true or false)"
     echo ""
@@ -54,6 +55,9 @@ while [ "$1" != "" ]; do
             ;;
         --batch)
             BATCH=$VALUE
+            ;;
+        --precision)
+            PRECISION=$VALUE
             ;;
         --length)
             LENGTH=$VALUE
@@ -99,6 +103,11 @@ then
       echo " SET BATCH=$BATCH"
 fi
 
+if [ -z "$PRECISION" ]
+then
+      PRECISION=fp32
+      echo " SET PRECISION=$PRECISION"
+fi
 
 if [ -z "$HEADS" ]
 then
@@ -139,13 +148,13 @@ fi
 
 starttime=$(date +%s)
 # run attention
-output=$(python3 attention.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --num_attention_heads=$HEADS --attention_head_size=$SIZE --mode=$MODE 2>&1 | tee log.txt)
+output=$(python3 attention.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION --num_attention_heads=$HEADS --attention_head_size=$SIZE --mode=$MODE 2>&1 | tee log.txt)
 if [ "$PROFILE" = true ]
 then
     /opt/rocm/hcc/bin/rpt log.txt > hist.txt
 fi
 
 endtime=$(date +%s)
-echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH NUM_ATTENTION_HEADS=$HEADS SIZE_ATTENTION_HEAD=$SIZE" >> eval_results.txt
+echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT PRECISION=$PRECISION BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH NUM_ATTENTION_HEADS=$HEADS SIZE_ATTENTION_HEAD=$SIZE" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
 

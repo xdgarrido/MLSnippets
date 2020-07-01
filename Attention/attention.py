@@ -29,11 +29,11 @@ flags.DEFINE_integer("batch", 6, "Batch size")
 flags.DEFINE_integer("seq_length", 512, "Sequence Length")
 flags.DEFINE_integer("num_attention_heads",16,"Number of attention heads")
 flags.DEFINE_integer("attention_head_size",64,"Size of attention heads")
+flags.DEFINE_string("precision","fp32","precision fp32 or fp16")
 flags.DEFINE_string("mode","benchmark","Mode")
 
-
-def init_rand_variable(shape):
-    return tf.Variable(tf.random.uniform(shape, minval=-0.7, maxval=1.3))
+def init_rand_variable(shape,precision):
+    return tf.Variable(tf.random.uniform(shape, minval=-0.7, maxval=1.3, dtype=precision))
 
 def create_initializer(initializer_range=0.02):
   """Creates a `truncated_normal_initializer` with the given range."""
@@ -137,6 +137,7 @@ def dropout(input_tensor, dropout_prob, seed):
 
 def attention_layer(from_tensor,
                     to_tensor,
+                    precision,
                     attention_mask=None,
                     num_attention_heads=1,
                     size_per_head=512,
@@ -290,7 +291,7 @@ def attention_layer(from_tensor,
     # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
     # masked positions, this operation will create a tensor which is 0.0 for
     # positions we want to attend and -10000.0 for masked positions.
-    adder = (1.0 - tf.cast(attention_mask, dtype=tf.float32)) * -10000.0
+    adder = (1.0 - tf.cast(attention_mask, dtype=precision)) * -10000.0
 
     # Since we are adding it to the raw scores before the softmax, this is
     # effectively the same as removing these entirely.
@@ -336,7 +337,11 @@ class Attention(tf.test.TestCase):
   def test_attention(self):
     with self.session() as sess:
       with tf.device('/GPU:0'): 
-       
+        if FLAGS.precision == "fp32":
+          self.precision=tf.float32
+        else: 
+          self.precision=tf.float16
+
         # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
         batch_size = FLAGS.batch
         seq_length = FLAGS.seq_length
@@ -350,12 +355,13 @@ class Attention(tf.test.TestCase):
 
         # initialize layer and weight for dense layers input
         initializer_range = 0.2
-        layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads])
+        layer_input = init_rand_variable([batch_size * seq_length, attention_head_size * num_attention_heads],self.precision)
         attention_mask = init_ones([batch_size,seq_length,seq_length])
 
         attention_head_gpu = attention_layer(
                 from_tensor=layer_input,
                 to_tensor=layer_input,
+                precision=self.precision,
                 attention_mask=attention_mask,
                 num_attention_heads=num_attention_heads,
                 size_per_head=attention_head_size,

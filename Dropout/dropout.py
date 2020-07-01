@@ -57,13 +57,11 @@ attention_probs_dropout_prob = 0.1
 attention_probs = init_ones(
     [batch_size, num_attention_heads, seq_length, seq_length])
 
+seed = random.randint(0, sys.maxsize)
 
+init = tf.compat.v1.global_variables_initializer()
 
-for i in range(FLAGS.iter):
-    seed = random.randint(0, sys.maxsize)
-
-    init = tf.compat.v1.global_variables_initializer()
-
+with tf.compat.v1.Session() as sess:
     with tf.device('/GPU:0'):
         attention_probs_dropout_gpu = dropout(
             attention_probs, attention_probs_dropout_prob, seed=seed)
@@ -79,9 +77,9 @@ for i in range(FLAGS.iter):
             attention_probs_dropout_cpu_gradient = tf.gradients(
                 ys=attention_probs_dropout_cpu, xs=attention_probs)
 
-    with tf.compat.v1.Session() as sess:
-        sess.run(init)
+    sess.run(init)
 
+    for i in range(FLAGS.iter):
         # sess.run returns a list of the fetches given to it
         gpu_pass = sess.run([attention_probs_dropout_gpu,
                              attention_probs_dropout_gpu_gradient])

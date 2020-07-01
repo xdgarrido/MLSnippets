@@ -36,11 +36,9 @@ hidden_size = FLAGS.hidden_size
 
 #initialize x_trf 
 x_trf  = init_weights([hidden_size,hidden_size])
+init = tf.compat.v1.global_variables_initializer()
 
-
-for i in range(FLAGS.iter):
- 
-    init = tf.compat.v1.global_variables_initializer()
+with tf.compat.v1.Session() as sess:
     with tf.device('/GPU:0'):
         context_layer_gpu  = layer_norm(x_trf)   
         context_layer_gpu_gradient = tf.gradients(ys=context_layer_gpu,xs=x_trf)
@@ -50,8 +48,9 @@ for i in range(FLAGS.iter):
             context_layer_cpu  = layer_norm(x_trf) 
             context_layer_cpu_gradient = tf.gradients(ys=context_layer_cpu,xs=x_trf)
 
-    with tf.compat.v1.Session() as sess:
-        sess.run(init)
+    sess.run(init)
+
+    for i in range(FLAGS.iter):
         # sess.run returns a list of the fetches given to it
         gpu_pass = sess.run([context_layer_gpu,context_layer_gpu_gradient])
         forward_pass_gpu = gpu_pass[0]

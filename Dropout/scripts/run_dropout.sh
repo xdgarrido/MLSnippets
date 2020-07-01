@@ -10,6 +10,7 @@ function usage()
     echo "\t--mode=$MODE (benchmark or validation)"
     echo "\t--length=$LENGTH (sequence length) "
     echo "\t--batch=$BATCH (amd or nvidia)"
+    echo "\t--profile=$PROFILE (true or false)"
     echo "\t--heads=$HEADS (number of attention heads)"
     echo ""
 }
@@ -72,6 +73,9 @@ while [ "$1" != "" ]; do
         --heads)
             HEADS=$VALUE
             ;;
+        --profile)
+            PROFILE=$VALUE
+            ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -120,10 +124,21 @@ then
       echo " SET SEQ_LENGTH=$LENGTH"
 fi
 
+if [ "$PROFILE" = true ]
+then
+    export HCC_PROFILE=2 
+    export HCC_PROFILE_VERBOSE=0x3f
+    echo "Set profiling"
+fi
+
+
 starttime=$(date +%s)
 # run dropout
-output=$(python3 dropout.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --attention_heads=$HEADS --mode=benchmark &> profile_dropout.txt)
-#/opt/rocm/hcc/bin/rpt profile_droput.txt > profile_dropout_HIST.txt
+output=$(python3 dropout.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --attention_heads=$HEADS --mode=$MODE &> log.txt)
+if [ "$PROFILE" = true ]
+then
+    /opt/rocm/hcc/bin/rpt log.txt > hist.txt
+fi
 endtime=$(date +%s)
 echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT BATCH_SIZE=$BATCH SEQ_LENGTH=$LENGTH NUM_ATTENTION_HEADS=$HEADS" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt

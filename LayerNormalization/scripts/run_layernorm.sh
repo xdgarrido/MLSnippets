@@ -9,6 +9,7 @@ function usage()
     echo "\t--size=$SIZE (hidden_size) "
     echo "\t--vendor=$VENDOR (amd or nvidia)"
     echo "\t--mode=$MODE (benchmark or validation)"
+    echo "\t--profile=$PROFILE (true or false)"
     echo ""
 }
 
@@ -70,6 +71,9 @@ while [ "$1" != "" ]; do
         --size)
             SIZE=$VALUE
             ;;
+        --profile)
+            PROFILE=$VALUE
+            ;;  
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -104,11 +108,21 @@ then
       echo " SET MODE=$MODE"
 fi
 
+if [ "$PROFILE" = true ]
+then
+    export HCC_PROFILE=2 
+    export HCC_PROFILE_VERBOSE=0x3f
+    echo "Set profiling"
+fi
+
 starttime=$(date +%s)
 # run dropout
 # python3 layer_normalization.py
-output=$(python3 layer_normalization.py --iter=$COUNT --mode=$MODE --hidden_size=$SIZE &> profile_layernorm.txt)
-#/opt/rocm/hcc/bin/rpt profile_layernorm.txt > profile_layernorm_HIST.txt
+output=$(python3 layer_normalization.py --iter=$COUNT --mode=$MODE --hidden_size=$SIZE &> log.txt)
+if [ "$PROFILE" = true ]
+then
+    /opt/rocm/hcc/bin/rpt log.txt > hist.txt
+fi
 endtime=$(date +%s)
 echo "VENDOR=$VENDOR MODE=$MODE ITER=$COUNT HIDDEN_SIZE=$SIZE" >> eval_results.txt
 secs_to_human "$(($(date +%s) - ${starttime}))" >> eval_results.txt
