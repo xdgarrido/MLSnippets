@@ -42,63 +42,39 @@ def dropout(input_tensor, dropout_prob, seed):
     """
     return tf.nn.dropout(input_tensor, rate=dropout_prob, seed=seed)
 
+class Drop(tf.test.TestCase):
+ 
+  def test_drop(self):
+    with self.session() as sess:
+      with tf.device('/GPU:0'): 
 
-# batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
-batch_size = FLAGS.batch
-seq_length = FLAGS.seq_length
+        # batch and seq size that fit into a single GPU collected from https://github.com/ROCmSoftwarePlatform/BERT#out-of-memory-issues
+        batch_size = FLAGS.batch
+        seq_length = FLAGS.seq_length
 
-# number of heads for BERT base model collected from https://github.com/ROCmSoftwarePlatform/BERT#pre-trained-models
-num_attention_heads = FLAGS.attention_heads
+        # number of heads for BERT base model collected from https://github.com/ROCmSoftwarePlatform/BERT#pre-trained-models
+        num_attention_heads = FLAGS.attention_heads
 
-# default dropout prob in BERT model collected from https://github.com/ROCmSoftwarePlatform/BERT/blob/bee6030e31e42a9394ac567da170a89a98d2062f/modeling.py#L42
-attention_probs_dropout_prob = 0.1
+        # default dropout prob in BERT model collected from https://github.com/ROCmSoftwarePlatform/BERT/blob/bee6030e31e42a9394ac567da170a89a98d2062f/modeling.py#L42
+        attention_probs_dropout_prob = 0.1
 
-# initialize atttention_scores
-attention_probs = init_ones(
-    [batch_size, num_attention_heads, seq_length, seq_length])
+        # initialize atttention_scores
+        attention_probs = init_ones([batch_size, num_attention_heads, seq_length, seq_length])
 
-seed = random.randint(0, sys.maxsize)
-
-init = tf.compat.v1.global_variables_initializer()
-
-with tf.compat.v1.Session() as sess:
-    with tf.device('/GPU:0'):
+        seed = random.randint(0, sys.maxsize)
+        
         attention_probs_dropout_gpu = dropout(
             attention_probs, attention_probs_dropout_prob, seed=seed)
 
         attention_probs_dropout_gpu_gradient = tf.gradients(
             ys=attention_probs_dropout_gpu, xs=attention_probs)
+   
+        init_op = tf.group(tf.compat.v1.global_variables_initializer())
+        sess.run(init_op)
+        for _ in range(FLAGS.iter):
+            sess.run(attention_probs_dropout_gpu_gradient)
 
-    if FLAGS.mode == "validation":
-        with tf.device('/CPU:0'):
-            attention_probs_dropout_cpu = dropout(
-                attention_probs, attention_probs_dropout_prob, seed=seed)
+if __name__ == "__main__":
+  tf.test.main()
 
-            attention_probs_dropout_cpu_gradient = tf.gradients(
-                ys=attention_probs_dropout_cpu, xs=attention_probs)
 
-    sess.run(init)
-
-    for i in range(FLAGS.iter):
-        # sess.run returns a list of the fetches given to it
-        gpu_pass = sess.run([attention_probs_dropout_gpu,
-                             attention_probs_dropout_gpu_gradient])
-        forward_pass_gpu = gpu_pass[0]
-        # tf.gradients returns a list of derivatives and we only need the derivative of one tensor so we take the first argument
-        backward_pass_gpu = gpu_pass[1][0]
-
-        if FLAGS.mode == "benchmark":
-            continue
-
-        cpu_pass = sess.run(
-            [attention_probs_dropout_cpu, attention_probs_dropout_cpu_gradient])
-        forward_pass_cpu = cpu_pass[0]
-        backward_pass_cpu = cpu_pass[1][0]
-
-        print("Seed: ", seed)
-        forward_error = forward_pass_gpu-forward_pass_cpu
-        print("Forward Error: ", np.sum(forward_error))
-        backward_error = backward_pass_gpu-backward_pass_cpu
-        print("Backward Error: ", np.sum(backward_error))
-        y_minus_dx = forward_pass_gpu - backward_pass_gpu
-        print("y-dx: ", np.sum(y_minus_dx))

@@ -94,7 +94,7 @@ fi
 
 if [ -z "$COUNT" ]
 then
-      COUNT=100
+      COUNT=5000
       echo " SET ITERATIONS=$COUNT"
 fi
 
