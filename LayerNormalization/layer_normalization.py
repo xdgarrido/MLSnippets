@@ -31,47 +31,28 @@ def layer_norm(input_tensor, name=None):
   #     inputs=input_tensor, begin_norm_axis=-1, begin_params_axis=-1, scope=name)
   return tf.keras.layers.LayerNormalization(axis=-1, epsilon=1e-12,  center=False, scale=False)(inputs=input_tensor)
 
+class Drop(tf.test.TestCase):
+ 
+  def test_drop(self):
+    with self.session() as sess:
+      with tf.device('/GPU:0'): 
 
-hidden_size = FLAGS.hidden_size
+        hidden_size = FLAGS.hidden_size
 
-#initialize x_trf 
-x_trf  = init_weights([hidden_size,hidden_size])
-init = tf.compat.v1.global_variables_initializer()
-
-with tf.compat.v1.Session() as sess:
-    with tf.device('/GPU:0'):
+        #initialize x_trf 
+        x_trf  = init_weights([hidden_size,hidden_size])
+        
         context_layer_gpu  = layer_norm(x_trf)   
         context_layer_gpu_gradient = tf.gradients(ys=context_layer_gpu,xs=x_trf)
+   
+        init_op = tf.group(tf.compat.v1.global_variables_initializer(),
+                          tf.compat.v1.local_variables_initializer())
+        sess.run(init_op)
+        for _ in range(FLAGS.iter):
+            sess.run(context_layer_gpu_gradient)
 
-    if FLAGS.mode == "validation":
-        with tf.device('/CPU:0'):
-            context_layer_cpu  = layer_norm(x_trf) 
-            context_layer_cpu_gradient = tf.gradients(ys=context_layer_cpu,xs=x_trf)
-
-    sess.run(init)
-
-    for i in range(FLAGS.iter):
-        # sess.run returns a list of the fetches given to it
-        gpu_pass = sess.run([context_layer_gpu,context_layer_gpu_gradient])
-        forward_pass_gpu = gpu_pass[0]
-        # tf.gradients returns a list of derivatives and we only need the derivative of one tensor so we take the first argument
-        backward_pass_gpu = gpu_pass[1][0]
-
-        if FLAGS.mode == "benchmark":
-            continue
-        
-        cpu_pass = sess.run([context_layer_cpu,context_layer_cpu_gradient])
-        forward_pass_cpu = cpu_pass[0]
-        # tf.gradients returns a list of derivatives and we only need the derivative of one tensor so we take the first argument
-        backward_pass_cpu = cpu_pass[1][0]
-        # compute mean square error using numpy
-        mse_fwd = ((forward_pass_gpu - forward_pass_cpu)**2).mean(axis=-1)
-        print("Forward MSE Error: ", np.sum(mse_fwd))
-        mse_bwd = ((backward_pass_gpu - backward_pass_cpu)**2).mean(axis=-1)
-        print("Backward MSE Error: ", np.sum(mse_bwd))
-        y_minus_dx_gpu = (forward_pass_gpu - backward_pass_gpu)
-        print("y-dx: ", np.sum(y_minus_dx_gpu))
-
+if __name__ == "__main__":
+  tf.test.main()
         
 
     
