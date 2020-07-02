@@ -3,7 +3,7 @@ function usage()
 {
     echo "Usage:"
     echo ""
-    echo "./run_optimizer.sh"
+    echo "./run_layernorm.sh"
     echo "\t-h --help"
     echo "\t--iter=$COUNT (number of iterations) "
     echo "\t--size=$SIZE (hidden_size) "
