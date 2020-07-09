@@ -3,7 +3,7 @@ function usage()
 {
     echo "Usage:"
     echo ""
-    echo "./run_trf.sh"
+    echo "./run_enc.sh"
     echo "\t-h --help"
     echo "\t--iter=$COUNT (number of iterations) "
     echo "\t--vendor=$VENDOR (amd or nvidia)"
@@ -149,8 +149,8 @@ then
 fi
 
 starttime=$(date +%s)
-# run transformer by itself 
-output=$(python3 transformer.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION --layers=$LAYERS --heads=$HEADS 2>&1 | tee log.txt)
+# run encoder by itself 
+output=$(python3 encoder.py --iter=$COUNT --seq_length=$LENGTH --batch=$BATCH --precision=$PRECISION --layers=$LAYERS --heads=$HEADS 2>&1 | tee log.txt)
 if [ "$PROFILE" = true ]
 then
     /opt/rocm/hcc/bin/rpt log.txt > hist.txt
